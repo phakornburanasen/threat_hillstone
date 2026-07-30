@@ -1,0 +1,7 @@
+fastapi==0.124.4
+uvicorn[standard]==0.30.6
+python-dotenv
+pandas
+sqlalchemy
+psycopg2-binary
+playwright

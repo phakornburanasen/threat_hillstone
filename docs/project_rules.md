@@ -96,7 +96,10 @@
 
 * Target table: `logs_cyber` ใช้ `if_exists='append'` ห้ามเปลี่ยนเป็น `replace` เด็ดขาด
 * Insert แบ่ง chunk 1000 แถว ด้วย `chunksize=1000` ห้ามลด chunk size โดยไม่มีเหตุผล
-* ห้าม `TRUNCATE` หรือ `DELETE` ข้อมูลในตาราง `logs_cyber` โดยพลการ
+* ตารางต้องมี column `created_at` (timestamp / timestamptz) เพื่อใช้กับ retention policy
+* **Retention policy:** `insert_log.py` จะลบข้อมูลที่ `created_at < NOW() - INTERVAL '90 days'` ทุกครั้งที่รัน (cleanup pass) ห้ามเปลี่ยน 90 วัน หรือปิด cleanup โดยไม่ได้รับอนุมัติ
+* **Dedup policy:** ก่อน insert ทุกครั้ง ให้เช็คว่ามี record ในตารางที่ `attack_start_time` อยู่ในช่วงเดียวกับข้อมูลที่จะ insert หรือไม่ (ค่า `min`/`max` ของคอลัมน์ `attack_start_time` ใน DataFrame) ถ้ามี → ข้าม insert
+* `DELETE` อื่น ๆ นอกเหนือจาก retention pass ห้ามทำโดยพลการ
 * ก่อนเปลี่ยน schema ให้ตรวจ column mapping ใน `insert_log.py` และตรวจ Excel VBA ที่อ้างถึง column ด้วย
 
 ---

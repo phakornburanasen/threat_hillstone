@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
 
 # =========================================
@@ -192,6 +192,62 @@ try:
 except Exception as e:
     print(f"เชื่อมต่อ PostgreSQL ไม่สำเร็จ : {e}")
     raise SystemExit(1)
+
+# =========================================
+# CLEANUP OLD RECORDS (> 90 days)
+# =========================================
+try:
+    with engine.begin() as cleanup_conn:
+        delete_result = cleanup_conn.execute(
+            text(
+                "DELETE FROM logs_cyber "
+                "WHERE created_at < (NOW() - INTERVAL '90 days')"
+            )
+        )
+        deleted_rows = delete_result.rowcount or 0
+    print(f"\nลบข้อมูลเก่า > 90 วัน จำนวน {deleted_rows} แถว")
+except Exception as e:
+    print(f"\nลบข้อมูลเก่าไม่สำเร็จ : {e}")
+    raise SystemExit(1)
+
+# =========================================
+# DEDUP CHECK
+# =========================================
+valid_window = df['attack_start_time'].dropna()
+if valid_window.empty:
+    print("\nไม่มีข้อมูล attack_start_time ที่ถูกต้อง ข้ามการตรวจสอบข้อมูลซ้ำ")
+    min_ts = None
+    max_ts = None
+else:
+    min_ts = valid_window.min()
+    max_ts = valid_window.max()
+    try:
+        with engine.connect() as dedup_conn:
+            existing_count = dedup_conn.execute(
+                text(
+                    "SELECT COUNT(*) FROM logs_cyber "
+                    "WHERE attack_start_time >= :min_ts "
+                    "AND attack_start_time <= :max_ts"
+                ),
+                {
+                    "min_ts": min_ts.to_pydatetime(),
+                    "max_ts": max_ts.to_pydatetime(),
+                },
+            ).scalar() or 0
+    except Exception as e:
+        print(f"\nตรวจสอบข้อมูลซ้ำไม่สำเร็จ : {e}")
+        raise SystemExit(1)
+
+    print(
+        f"\nช่วงเวลาของข้อมูลที่จะ insert : {min_ts} ถึง {max_ts}"
+    )
+    print(f"พบข้อมูลในช่วงเวลาเดียวกันในฐานข้อมูล : {existing_count} แถว")
+
+    if existing_count > 0:
+        print("ข้ามการ insert : ข้อมูลชุดนี้ถูกบันทึกเข้าฐานข้อมูลแล้ว")
+        raise SystemExit(0)
+
+    print("ไม่พบข้อมูลในช่วงเวลาเดียวกัน ดำเนินการ insert")
 
 # =========================================
 # INSERT DATABASE

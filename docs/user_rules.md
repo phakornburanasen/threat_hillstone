@@ -52,7 +52,10 @@
 
 ## 5. การจัดการ Database
 
-* ก่อน `UPDATE` / `DELETE` ใน `logs_cyber` ให้ถามเสมอ — ตารางนี้เป็น append-only
+* ตาราง `logs_cyber` มี retention 90 วัน — `insert_log.py` จะลบ record เก่าเกิน 90 วันอัตโนมัติทุกครั้งที่รัน ห้ามเปลี่ยน window นี้โดยไม่ถาม
+* มี dedup อัตโนมัติ — ถ้ามี record ในตารางที่ `attack_start_time` อยู่ในช่วงเดียวกับข้อมูลที่จะ insert จะข้าม insert ทันที
+* `DELETE` นอกเหนือจาก retention pass ห้ามทำโดยไม่ถาม
+* `TRUNCATE` ห้ามทำเด็ดขาด
 * ก่อนเปลี่ยน schema ให้ตรวจว่า Excel VBA ที่ผู้ใช้ import ไปแล้วอ้างถึง column อะไรบ้าง
 * ถ้าจะเปลี่ยนค่า default ของ `if_exists` จาก `append` ห้ามทำเด็ดขาด
 
